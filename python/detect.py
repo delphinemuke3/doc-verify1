@@ -6,8 +6,26 @@ import numpy as np
 from ultralytics import YOLO
 
 # Path to trained model
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'Gov_Docs_Model.pt')
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'best.pt')
 
+# ── Per-class minimum confidence thresholds ───────────────────────────────────
+# Lower threshold for documents that are harder to photograph clearly
+CLASS_MIN_CONFIDENCE = {
+    "Rwanda Driving License": 30.0,
+    "Rwanda National ID":     40.0,
+    "NESA Certificate":       40.0,
+    "RP Degree":              40.0,
+    "RP Transcript":          40.0,
+    "ULK Degree":             40.0,
+    "ULK Transcript":         40.0,
+    "UR Degree":              40.0,
+    "UR Transcript":          40.0,
+    "MKU Transcript":         40.0,
+    "UTAB Degree":            40.0,
+    "MKU Degree":             40.0,
+    "UTAB Transcript":        40.0,
+}
+DEFAULT_MIN_CONFIDENCE = 25.0
 CLASS_INFO = {
     "MKU Degree": {
         "color": (180, 50, 50),
@@ -76,48 +94,50 @@ CLASS_INFO = {
     },
 }
 
-def run_detection(image_path, confidence=0.25):
+
+def run_detection(image_path, confidence=0.10):
     try:
         if not os.path.exists(image_path):
             return {
-                "success": False,
-                "error": f"Image file not found: {image_path}",
+                "success":    False,
+                "error":      f"Image file not found: {image_path}",
                 "detections": [],
-                "verified": False,
-                "score": 0
+                "verified":   False,
+                "score":      0
             }
 
         if not os.path.exists(MODEL_PATH):
             return {
-                "success": False,
-                "error": f"Model not found at: {MODEL_PATH}. Please copy Gov_Docs_Model.pt to models/ folder.",
+                "success":    False,
+                "error":      f"Model not found at: {MODEL_PATH}.",
                 "detections": [],
-                "verified": False,
-                "score": 0
+                "verified":   False,
+                "score":      0
             }
 
-        model = YOLO(MODEL_PATH)
+        model   = YOLO(MODEL_PATH)
         img_bgr = cv2.imread(image_path)
 
         if img_bgr is None:
             return {
-                "success": False,
-                "error": "Could not read image file. Make sure it is a valid JPG or PNG.",
+                "success":    False,
+                "error":      "Could not read image file. Make sure it is a valid JPG or PNG.",
                 "detections": [],
-                "verified": False,
-                "score": 0
+                "verified":   False,
+                "score":      0
             }
 
+        # Run at low raw confidence — we apply per-class thresholds ourselves
         results = model(img_bgr, conf=confidence, verbose=False)[0]
 
-        detections = []
+        detections   = []
         highest_conf = 0
 
         for box in results.boxes:
             cls_name = model.names[int(box.cls)]
             conf_val = float(box.conf)
             x1, y1, x2, y2 = map(int, box.xyxy[0])
-            info = CLASS_INFO.get(cls_name, {})
+            info  = CLASS_INFO.get(cls_name, {})
             color = info.get("color", (100, 100, 100))
 
             # Draw bounding box
@@ -141,24 +161,47 @@ def run_detection(image_path, confidence=0.25):
                 "bbox":        [x1, y1, x2, y2]
             })
 
-        # Save annotated image next to original
-        base, ext = os.path.splitext(image_path)
+        # Save annotated image
+        base, ext   = os.path.splitext(image_path)
         output_path = base + "_detected" + ext
         cv2.imwrite(output_path, img_bgr)
 
-        verified = len(detections) > 0
-        model_confidence = round(highest_conf * 100, 1) if verified else 0
-        score = 100 if verified else 0
+        # ── Apply per-class confidence threshold ──────────────────────────────
+        model_confidence = round(highest_conf * 100, 1) if detections else 0
+        top_class        = detections[0]['class'] if detections else ''
+        min_conf         = CLASS_MIN_CONFIDENCE.get(top_class, DEFAULT_MIN_CONFIDENCE)
+        verified         = len(detections) > 0 and model_confidence >= min_conf
+        score            = 100 if verified else 0
 
-        return {
-            "success":      True,
-            "verified":     verified,
-            "score":        score,
-            "model_confidence": model_confidence,
-            "detections":   detections,
-            "output_image": output_path,
-            "total_found":  len(detections)
+        # Build result
+        result = {
+            "success":           True,
+            "verified":          verified,
+            "score":             score,
+            "model_confidence":  model_confidence,
+            "detections":        detections,
+            "output_image":      output_path,
+            "total_found":       len(detections),
+            "min_conf_used":     min_conf,
         }
+
+        # Add helpful message if detected but below threshold
+        if detections and not verified:
+            doc_type = top_class
+            if doc_type in ("Rwanda Driving License", "Rwanda National ID"):
+                result["low_conf_hint"] = (
+                    f"Document detected as {doc_type} at {model_confidence}% confidence "
+                    f"(minimum required: {min_conf}%). "
+                    "Please upload a clear, flat, well-lit scan of the front of the document."
+                )
+            else:
+                result["low_conf_hint"] = (
+                    f"Document detected at {model_confidence}% confidence "
+                    f"(minimum required: {min_conf}%). "
+                    "Please upload a higher quality image."
+                )
+
+        return result
 
     except Exception as e:
         return {
@@ -174,12 +217,12 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(json.dumps({
             "success": False,
-            "error": "Usage: detect.py <image_path> [confidence 0-100]"
+            "error":   "Usage: detect.py <image_path> [confidence 0-100]"
         }))
         sys.exit(1)
 
     image_path = sys.argv[1]
-    confidence = 0.25
+    confidence = 0.10  # default low — per-class thresholds applied internally
     if len(sys.argv) > 2:
         raw_confidence = float(sys.argv[2])
         confidence = raw_confidence / 100 if raw_confidence > 1 else raw_confidence

@@ -1,0 +1,10 @@
+opencv-python-headless
+pytesseract
+Pillow
+pymysql
+ultralytics
+numpy
+pyzbar
+requests
+beautifulsoup4
+urllib3

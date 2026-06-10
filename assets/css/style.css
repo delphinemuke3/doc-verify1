@@ -161,7 +161,6 @@ body {
     color: #fff;
 }
 
-
 .main-content {
     flex: 1;
     padding: 32px;
@@ -256,3 +255,26 @@ tbody tr:hover td { background: #f8fbff; }
 .badge-verified  { background: #e8f5e9; color: #2e7d32; }
 .badge-suspicious{ background: #fff8e1; color: #f57f17; }
 .badge-fake      { background: #ffebee; color: #c62828; }
+
+/* Auth links row */
+.auth-links {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 13px;
+    color: #666;
+}
+
+.auth-links a {
+    color: #1a237e;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.auth-links a:hover {
+    text-decoration: underline;
+}
+
+.auth-links-divider {
+    margin: 0 8px;
+    color: #bbb;
+}
