@@ -4,7 +4,7 @@ FROM php:8.2-apache
 RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-dev \
     tesseract-ocr \
-    libgl1-mesa-glx libglib2.0-0 \
+    libgl1 libglib2.0-0 \
     default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
