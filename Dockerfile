@@ -19,7 +19,8 @@ RUN a2enmod rewrite
 COPY . /var/www/html/
 
 # Set permissions
-RUN chown -R www-data:www-data /var/www/html/uploads \
+RUN mkdir -p /var/www/html/uploads \
+    && chown -R www-data:www-data /var/www/html/uploads \
     && chmod -R 777 /var/www/html/uploads
 
 EXPOSE 80
