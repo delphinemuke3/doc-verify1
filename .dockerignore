@@ -6,11 +6,10 @@ __pycache__
 ocr_test.txt
 test_post.py
 test_rp.py
-ocr_test.txt
 python/ocr_extract_backup.py
 python/ocr_extract_old_backup.py
 python/ocr_test.py
 python/test_rp.py
 models/Gov_Docs_Model.pt
 models/Final_gov_Docx_Model.pt
-models/best.pt
+models/Gov_Docx_Model_V3.pt
